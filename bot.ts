@@ -15,10 +15,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const WELCOME_CHANNEL_ID = "1508087523820310578"; 
 const LOGS_CHANNEL_ID = "1508091945883275495"; 
 let bannedWords = ["سب", "شتم", "ممنوع"];
+const warnings = new Map(); 
 
 const commands = [
   { name: 'ping', description: 'يرد عليك بكلمة Pong!' },
-  { name: 'say', description: 'يجعل البوت يتكلم', options: [{ name: 'text', type: 3, description: 'الكلام المطلوب', required: true }] },
   { name: 'مسح', description: 'مسح رسائل', options: [{ name: 'عدد', type: 4, description: 'عدد الرسائل (1-100)', required: true }] },
   { name: 'قفل', description: 'قفل الشات الحالي' },
   { name: 'فتح', description: 'فتح الشات الحالي' },
@@ -31,82 +31,62 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 client.once(Events.ClientReady, async () => {
     await rest.put(Routes.applicationCommands("1507873930554245200"), { body: commands });
-    console.log('البوت جاهز يا أسامة بكل الأوامر!');
+    console.log('البوت جاهز ونظام العقوبات التصاعدي مفعل!');
 });
 
-// الترحيب
-client.on(Events.GuildMemberAdd, member => {
-    const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-    if (channel) channel.send(`أهلاً بك يا ${member.user} في سيرفرنا! نورتنا يا بطل! 🎉`);
-});
-
-// الأوامر
+// الأوامر الإدارية
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    if (interaction.commandName === 'ping') await interaction.reply('Pong!');
-    
-    if (interaction.commandName === 'say') {
-        await interaction.channel.send(interaction.options.getString('text'));
-        await interaction.reply({ content: 'تم الإرسال!', ephemeral: true });
-    }
-
     if (interaction.commandName === 'مسح') {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) return await interaction.reply({ content: 'لا تملك صلاحية!', ephemeral: true });
         const amount = interaction.options.getInteger('عدد');
         await interaction.channel.bulkDelete(amount, true);
         await interaction.reply({ content: `✅ تم مسح ${amount} رسالة!`, ephemeral: true });
     }
-
-    // القفل والفتح
     if (interaction.commandName === 'قفل') {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return await interaction.reply({ content: 'لا تملك صلاحية!', ephemeral: true });
         await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false });
         await interaction.reply('🔒 تم قفل الشات!');
     }
-
     if (interaction.commandName === 'فتح') {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return await interaction.reply({ content: 'لا تملك صلاحية!', ephemeral: true });
         await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true });
         await interaction.reply('🔓 تم فتح الشات!');
     }
-
-    // الحماية
     if (interaction.commandName === 'حذر_سبه') {
-        const word = interaction.options.getString('كلمه');
-        bannedWords.push(word);
-        await interaction.reply(`✅ تم حظر كلمة: **${word}**`);
+        bannedWords.push(interaction.options.getString('كلمه'));
+        await interaction.reply('✅ تم الحظر.');
     }
-
     if (interaction.commandName === 'ازالت_سبه') {
-        const word = interaction.options.getString('كلمه');
-        bannedWords = bannedWords.filter(w => w !== word);
-        await interaction.reply(`🗑️ تم إزالة كلمة: **${word}**`);
+        bannedWords = bannedWords.filter(w => w !== interaction.options.getString('كلمه'));
+        await interaction.reply('🗑️ تم الإزالة.');
     }
-
-    if (interaction.commandName === 'كلمات') {
-        await interaction.reply(`🚫 قائمة الكلمات المحظورة:\n\`${bannedWords.join(', ')}\``);
-    }
+    if (interaction.commandName === 'كلمات') await interaction.reply(`🚫 الكلمات: \`${bannedWords.join(', ')}\``);
 });
 
-// الحماية والسجلات
+// نظام العقوبات التصاعدي
 client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot) return;
+    if (message.author.bot || !message.member) return;
     const foundWord = bannedWords.find(word => message.content.toLowerCase().includes(word.toLowerCase()));
 
     if (foundWord) {
-        try {
-            await message.delete();
-            const warning = await message.channel.send(`${message.author}، ممنوع استخدام كلمة **${foundWord}**!`);
-            setTimeout(() => warning.delete(), 5000);
+        await message.delete();
+        const userId = message.author.id;
+        const count = (warnings.get(userId) || 0) + 1;
+        warnings.set(userId, count);
 
-            const logsChannel = message.guild.channels.cache.get(LOGS_CHANNEL_ID);
-            if (logsChannel) {
-                logsChannel.send(`⚠️ **مخالفة سب**\nالعضو: ${message.author.tag}\nالكلمة: ${foundWord}\nالوقت: ${new Date().toLocaleString()}`);
-            }
-        } catch (error) {
-            console.error("خطأ:", error);
-        }
+        let action = "";
+        let duration = 0;
+
+        if (count === 1) { duration = 5 * 60 * 1000; action = "كتم 5 دقائق"; }
+        else if (count === 2) { duration = 1 * 60 * 60 * 1000; action = "كتم 1 ساعة"; }
+        else if (count === 3) { duration = 5 * 60 * 60 * 1000; action = "كتم 5 ساعات"; }
+        else if (count === 4) { duration = 7 * 60 * 60 * 1000; action = "كتم 7 ساعات"; }
+        else { duration = 48 * 60 * 60 * 1000; action = "كتم 48 ساعة"; warnings.set(userId, 0); }
+
+        await message.member.timeout(duration, "مخالفة سب متكررة");
+        message.channel.send(`${message.author}، **المخالفة ${count}**: تم تنفيذ العقوبة (${action}).`);
+
+        const logsChannel = message.guild.channels.cache.get(LOGS_CHANNEL_ID);
+        if (logsChannel) logsChannel.send(`⚠️ مخالفة: ${message.author.tag} | العقوبة: ${action}`);
     }
 });
 
