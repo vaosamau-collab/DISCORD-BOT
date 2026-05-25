@@ -9,15 +9,16 @@ const commands = [
   { name: 'ping', description: 'يرد عليك بكلمة Pong!' },
   { name: 'ban', description: 'طرد نهائي', options: [{ name: 'user', type: 6, description: 'العضو', required: true }] },
   { name: 'kick', description: 'ركل عضو', options: [{ name: 'user', type: 6, description: 'العضو', required: true }] },
-  { name: 'image', description: 'توليد صورة بالذكاء الاصطناعي', options: [{ name: 'prompt', type: 3, description: 'وصف الصورة', required: true }] }
+  { name: 'image', description: 'توليد صورة', options: [{ name: 'prompt', type: 3, description: 'وصف الصورة', required: true }] },
+  { name: 'say', description: 'يجعل البوت يتكلم', options: [{ name: 'text', type: 3, description: 'الكلام المطلوب', required: true }] }
 ];
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-const bannedWords = ["سب", "شتم", "ممنوع"]; // أضف كلماتك هنا
+const bannedWords = ["سب", "شتم", "ممنوع"];
 
 client.once(Events.ClientReady, async () => {
     await rest.put(Routes.applicationCommands("1507873930554245200"), { body: commands });
-    console.log('البوت شغال بكل الأوامر!');
+    console.log('البوت شغال بكل الأوامر يا أسامة!');
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -37,12 +38,18 @@ client.on(Events.InteractionCreate, async interaction => {
         await interaction.reply(`تم ركل ${member.user.tag}`);
     }
 
+    if (interaction.commandName === 'say') {
+        const text = interaction.options.getString('text');
+        await interaction.channel.send(text);
+        await interaction.reply({ content: 'تم الإرسال!', ephemeral: true });
+    }
+
     if (interaction.commandName === 'image') {
         await interaction.deferReply();
         try {
             const response = await openai.images.generate({ model: "dall-e-3", prompt: interaction.options.getString('prompt'), n: 1, size: "1024x1024" });
             await interaction.editReply(response.data[0].url);
-        } catch (e) { await interaction.editReply('مالك دخل'); }
+        } catch (e) { await interaction.editReply('خطأ: تأكد من مفتاح الـ OpenAI!'); }
     }
 });
 
