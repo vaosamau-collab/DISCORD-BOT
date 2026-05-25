@@ -14,11 +14,19 @@ client.on(Events.ClientReady, () => {
     console.log(`البوت شغال يا أسامة!`);
 });
 
-// هذا هو أمر البينج اللي سألت عنه، إذا كتبته في الديسكورد بيرد عليك
+// هنا أوامرك القديمة
+client.on(Events.GuildMemberAdd, async (member) => {
+    const channel = member.guild.channels.cache.get("1508087523820310578");
+    if (channel && 'send' in channel) {
+        channel.send(`🎉 هلا والله ${member} نورت السيرفر! أنت العضو رقم ${member.guild.memberCount} في ${member.guild.name} 🏆`);
+    }
+});
+
 client.on(Events.MessageCreate, async (message) => {
     if (message.content === '!ping') {
         message.reply('Pong!');
     }
+    // يمكنك إضافة أوامر التحذير وغيرها هنا بنفس طريقة الـ if
 });
 
 client.login(process.env.DISCORD_TOKEN);
