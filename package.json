@@ -1,13 +1,17 @@
 {
   "name": "discord-bot",
   "version": "1.0.0",
-  "main": "bot.js",
+  "main": "dist/bot.js",
   "scripts": {
-    "start": "node bot.js"
+    "build": "tsc",
+    "start": "node dist/bot.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
     "openai": "^4.47.1",
-    "fluent-ffmpeg": "^2.1.2"
+    "fluent-ffmpeg": "^2.1.2",
+    "typescript": "^5.4.0",
+    "@types/node": "^22.0.0",
+    "@types/fluent-ffmpeg": "^2.1.24"
   }
 }

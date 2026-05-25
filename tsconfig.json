@@ -5,6 +5,10 @@
     "moduleResolution": "NodeNext",
     "outDir": "./dist",
     "rootDir": ".",
-    "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": ["*.ts", "lib/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
