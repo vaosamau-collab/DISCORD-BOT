@@ -266,7 +266,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
       return;
     }
     const memberCount = member.guild.memberCount;
-    await channel.send(
+  ('send' in channel) { channel.send(...); }
       `🎉 يا هلا ويا سهلا ${member} منور السيرفر! 🌟\n` +
       `أنت العضو رقم **${memberCount}** في **${member.guild.name}** 🏆`
     );
@@ -291,7 +291,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
       const nsfw = await isNSFW(attachment.url);
       if (nsfw) {
         await message.delete().catch(() => null);
-        await message.channel.send(
+        ('send' in channel) { channel.send(...); }
           `⚠️ **تحذير رسمي / Official Warning**\n` +
           `${message.author} — تم إعطاك تحذير لسبب: **نشر صورة غير لائقة (+18) / Posting NSFW image**\n` +
           `تم حذف الصورة وإعطاؤك تايم أوت 5 دقائق. ⏰`
@@ -309,7 +309,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
       const nsfw = await isVideoNSFW(attachment.url);
       if (nsfw) {
         await message.delete().catch(() => null);
-        await message.channel.send(
+        ('send' in channel) { channel.send(...); }
           `⚠️ **تحذير رسمي / Official Warning**\n` +
           `${message.author} — تم إعطاك تحذير لسبب: **نشر مقطع غير لائق (+18) / Posting NSFW video**\n` +
           `تم حذف المقطع وإعطاؤك تايم أوت 5 دقائق. ⏰`
@@ -425,7 +425,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
         return cmd.reply({ content: "❌ قناة الترحيب ما تم إيجادها!", ephemeral: true });
       }
       const memberCount = cmd.guild?.memberCount ?? 0;
-      await channel.send(
+      ('send' in channel) { channel.send(...); }
         `🎉 يا هلا ويا سهلا ${cmd.user} منور السيرفر! 🌟\n` +
         `أنت العضو رقم **${memberCount}** في **${cmd.guild?.name}** 🏆`
       );
