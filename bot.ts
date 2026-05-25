@@ -1,5 +1,5 @@
 // @ts-nocheck
-const { Client, GatewayIntentBits, Events, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, Events, REST, Routes, PermissionsBitField } = require('discord.js');
 const { OpenAI } = require('openai');
 
 const client = new Client({ 
@@ -13,13 +13,14 @@ const client = new Client({
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const WELCOME_CHANNEL_ID = "1508087523820310578"; 
-const LOGS_CHANNEL_ID = "1508091945883275495"; // روم السجلات
+const LOGS_CHANNEL_ID = "1508091945883275495"; 
 let bannedWords = ["سب", "شتم", "ممنوع"];
 
 const commands = [
   { name: 'ping', description: 'يرد عليك بكلمة Pong!' },
   { name: 'image', description: 'توليد صورة', options: [{ name: 'prompt', type: 3, description: 'وصف الصورة', required: true }] },
   { name: 'say', description: 'يجعل البوت يتكلم', options: [{ name: 'text', type: 3, description: 'الكلام المطلوب', required: true }] },
+  { name: 'مسح', description: 'مسح رسائل', options: [{ name: 'عدد', type: 4, description: 'عدد الرسائل (1-100)', required: true }] },
   { name: 'حذر_سبه', description: 'إضافة كلمة للحظر', options: [{ name: 'كلمه', type: 3, description: 'الكلمة', required: true }] },
   { name: 'ازالت_سبه', description: 'إزالة كلمة من الحظر', options: [{ name: 'كلمه', type: 3, description: 'الكلمة', required: true }] },
   { name: 'كلمات', description: 'عرض قائمة الكلمات المحظورة' }
@@ -29,7 +30,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 client.once(Events.ClientReady, async () => {
     await rest.put(Routes.applicationCommands("1507873930554245200"), { body: commands });
-    console.log('البوت جاهز بكل الميزات، يا أسامة!');
+    console.log('البوت شغال بكامل قوته يا أسامة!');
 });
 
 // الترحيب
@@ -38,15 +39,22 @@ client.on(Events.GuildMemberAdd, member => {
     if (channel) channel.send(`أهلاً بك يا ${member.user} في سيرفرنا! نورتنا يا بطل! 🎉`);
 });
 
-// أوامر الإدارة والمحاكاة
+// الأوامر
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'ping') await interaction.reply('Pong!');
-    
+
     if (interaction.commandName === 'say') {
         await interaction.channel.send(interaction.options.getString('text'));
         await interaction.reply({ content: 'تم الإرسال!', ephemeral: true });
+    }
+
+    if (interaction.commandName === 'مسح') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) return await interaction.reply({ content: 'لا تملك صلاحية!', ephemeral: true });
+        const amount = interaction.options.getInteger('عدد');
+        await interaction.channel.bulkDelete(amount, true);
+        await interaction.reply({ content: `✅ تم مسح ${amount} رسالة!`, ephemeral: true });
     }
 
     if (interaction.commandName === 'حذر_سبه') {
@@ -74,7 +82,7 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// نظام الحماية والسجلات
+// الحماية والسجلات
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
     const foundWord = bannedWords.find(word => message.content.toLowerCase().includes(word.toLowerCase()));
@@ -86,7 +94,7 @@ client.on(Events.MessageCreate, async (message) => {
 
         const logsChannel = message.guild.channels.cache.get(LOGS_CHANNEL_ID);
         if (logsChannel) {
-            logsChannel.send(`⚠️ **مخالفة سب/قذف**\nالعضو: ${message.author.tag}\nالكلمة: ${foundWord}\nالوقت: ${new Date().toLocaleString()}`);
+            logsChannel.send(`⚠️ **مخالفة سب**\nالعضو: ${message.author.tag}\nالكلمة: ${foundWord}\nالوقت: ${new Date().toLocaleString()}`);
         }
     }
 });
