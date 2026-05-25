@@ -21,4 +21,4 @@ client.on(Events.MessageCreate, async (message) => {
     }
 });
 
-client.login(MTUwNzg3MzkzMDU1NDI0NTIwMA.GW3og3.baWIxJoKiC3kGppk1VH0Muy59V46qmNh72F1a4);
+client.login(process.env.DISCORD_TOKEN);
