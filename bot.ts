@@ -450,3 +450,5 @@ export function startBot() {
     logger.error({ err }, "فشل تسجيل الدخول للبوت");
   });
 }
+
+startBot();
