@@ -1,9 +1,19 @@
 // @ts-nocheck
-const { Client, GatewayIntentBits, Events, REST, Routes, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, Events, REST, Routes } = require('discord.js');
 const { OpenAI } = require('openai');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ 
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.MessageContent, 
+        GatewayIntentBits.GuildMembers 
+    ] 
+});
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const WELCOME_CHANNEL_ID = "1508087523820310578"; 
+const bannedWords = ["سب", "شتم", "ممنوع"];
 
 const commands = [
   { name: 'ping', description: 'يرد عليك بكلمة Pong!' },
@@ -14,13 +24,19 @@ const commands = [
 ];
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-const bannedWords = ["سب", "شتم", "ممنوع"];
 
 client.once(Events.ClientReady, async () => {
     await rest.put(Routes.applicationCommands("1507873930554245200"), { body: commands });
-    console.log('البوت شغال بكل الأوامر يا أسامة!');
+    console.log('البوت جاهز يا أسامة بكل الميزات!');
 });
 
+// الترحيب
+client.on(Events.GuildMemberAdd, member => {
+    const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+    if (channel) channel.send(`أهلاً بك يا ${member.user} في سيرفرنا! نورتنا يا بطل! 🎉`);
+});
+
+// الأوامر
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -53,6 +69,7 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
+// الكلمات المحظورة
 client.on(Events.MessageCreate, (message) => {
     if (message.author.bot) return;
     if (bannedWords.some(word => message.content.includes(word))) {
