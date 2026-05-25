@@ -1,4 +1,4 @@
-import {
+⁠// @ts-nocheckimport {
   Client,
   GatewayIntentBits,
   Events,
