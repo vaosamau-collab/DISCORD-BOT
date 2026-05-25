@@ -30,7 +30,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 client.once(Events.ClientReady, async () => {
     await rest.put(Routes.applicationCommands("1507873930554245200"), { body: commands });
-    console.log('البوت شغال بكامل قوته يا أسامة!');
+    console.log('البوت جاهز ومفعل نظام الحماية!');
 });
 
 // الترحيب
@@ -39,40 +39,34 @@ client.on(Events.GuildMemberAdd, member => {
     if (channel) channel.send(`أهلاً بك يا ${member.user} في سيرفرنا! نورتنا يا بطل! 🎉`);
 });
 
-// الأوامر
+// الأوامر (Slash Commands)
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'ping') await interaction.reply('Pong!');
-
     if (interaction.commandName === 'say') {
         await interaction.channel.send(interaction.options.getString('text'));
         await interaction.reply({ content: 'تم الإرسال!', ephemeral: true });
     }
-
     if (interaction.commandName === 'مسح') {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) return await interaction.reply({ content: 'لا تملك صلاحية!', ephemeral: true });
         const amount = interaction.options.getInteger('عدد');
         await interaction.channel.bulkDelete(amount, true);
         await interaction.reply({ content: `✅ تم مسح ${amount} رسالة!`, ephemeral: true });
     }
-
     if (interaction.commandName === 'حذر_سبه') {
         const word = interaction.options.getString('كلمه');
         bannedWords.push(word);
         await interaction.reply(`✅ تم حظر كلمة: **${word}**`);
     }
-
     if (interaction.commandName === 'ازالت_سبه') {
         const word = interaction.options.getString('كلمه');
         bannedWords = bannedWords.filter(w => w !== word);
         await interaction.reply(`🗑️ تم إزالة كلمة: **${word}**`);
     }
-
     if (interaction.commandName === 'كلمات') {
         await interaction.reply(`🚫 الكلمات المحظورة:\n\`${bannedWords.join(', ')}\``);
     }
-
     if (interaction.commandName === 'image') {
         await interaction.deferReply();
         try {
@@ -82,13 +76,20 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// الحماية والسجلات
+// نظام الحماية والسجلات مع كشف الأخطاء
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
-    const foundWord = bannedWords.find(word => message.content.toLowerCase().includes(word.toLowerCase()));
+    const msgContent = message.content.toLowerCase();
+    const foundWord = bannedWords.find(word => msgContent.includes(word.toLowerCase()));
 
     if (foundWord) {
-        await message.delete();
+        try {
+            await message.delete();
+        } catch (error) {
+            console.error("فشل حذف الرسالة في الـ Thread:", error);
+            message.channel.send(`⚠️ لا أستطيع حذف الرسالة! تأكد من صلاحية Manage Messages في هذا الروم.`);
+        }
+
         const warning = await message.channel.send(`${message.author}، ممنوع استخدام كلمة **${foundWord}**!`);
         setTimeout(() => warning.delete(), 5000);
 
