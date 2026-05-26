@@ -1,10 +1,10 @@
 {
   "name": "discord-bot",
   "version": "1.0.0",
-  "main": "dist/bot.js",
+  "main": "dist/bot.ts",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/bot.js"
+    "start": "node dist/bot.ts"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
