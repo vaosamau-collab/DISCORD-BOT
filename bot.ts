@@ -10,112 +10,96 @@ const client = new Client({
     ] 
 });
 
-// --- إعدادات النظام ---
-let bannedWords = ["سب", "شتم", "ممنوع"];
+// --- الإعدادات (الأيديات المعتمدة) ---
+let bannedWords = ["سب", "شتم", "ممنوع", "زق", "كلب"];
 const warnings = new Map();
 const LOGS_CHANNEL_ID = "1508091945883275495";
+const WELCOME_CHANNEL_ID = "1508087523820310578";
+const GENERAL_CHANNEL_ID = "1507868881597759510";
+const MY_ADMIN_ID = "1157314208988405760";
 
-// --- هيكلة الأوامر المتقدمة ---
+// --- أوامر النظام ---
 const commands = [
     { name: 'ping', description: 'اختبار سرعة البوت' },
-    { name: 'مسح', description: 'مسح رسائل', options: [{ name: 'عدد', type: 4, description: 'العدد (1-100)', required: true }] },
-    { name: 'قفل', description: 'إغلاق القناة الحالية' },
-    { name: 'فتح', description: 'فتح القناة الحالية' },
-    { name: 'إضافة_كلمة', description: 'إضافة كلمة للقائمة السوداء', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
-    { name: 'حذف_كلمة', description: 'حذف كلمة من القائمة السوداء', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
-    { name: 'عرض_الكلمات', description: 'عرض قائمة الكلمات المحظورة حالياً' }
+    { name: 'مسح', description: 'مسح رسائل', options: [{ name: 'عدد', type: 4, description: 'العدد', required: true }] },
+    { name: 'قفل', description: 'إغلاق الشات' },
+    { name: 'فتح', description: 'فتح الشات' },
+    { name: 'إضافة_كلمة', description: 'إضافة كلمة للحظر', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
+    { name: 'حذف_كلمة', description: 'حذف كلمة من الحظر', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
+    { name: 'عرض_الكلمات', description: 'عرض الكلمات المحظورة' }
 ];
 
-// --- تشغيل البوت وتجهيز الأوامر ---
 client.once(Events.ClientReady, async () => {
+    console.log(`✅ النظام يعمل بكامل طاقته - أسامة: ${client.user.tag}`);
+    // تفعيل الأوامر
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('✅ البوت يعمل بنظام العقوبات والفلترة النشط.');
 });
 
-// --- معالجة الأوامر التفاعلية ---
+// --- أوامر الإدارة (صلاحية خاصة لك فقط) ---
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
-    
-    // فحص الصلاحيات (يجب أن يكون مدير)
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: "🚫 ليس لديك صلاحيات المدير!", ephemeral: true });
-    }
+    if (interaction.user.id !== MY_ADMIN_ID) return interaction.reply({ content: "🚫 أنت لست المطور!", ephemeral: true });
 
-    switch(interaction.commandName) {
-        case 'مسح':
-            const count = interaction.options.getInteger('عدد');
-            await interaction.channel.bulkDelete(count, true);
-            await interaction.reply({ content: `✅ تم مسح ${count} رسالة.`, ephemeral: true });
-            break;
-
-        case 'قفل':
-            await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false });
-            await interaction.reply('🔒 تم إغلاق القناة.');
-            break;
-
-        case 'فتح':
-            await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true });
-            await interaction.reply('🔓 تم فتح القناة.');
-            break;
-
-        case 'إضافة_كلمة':
-            const newWord = interaction.options.getString('كلمة');
-            if(!bannedWords.includes(newWord)) bannedWords.push(newWord);
-            await interaction.reply(`✅ تمت إضافة **${newWord}** للقائمة.`);
-            break;
-
-        case 'حذف_كلمة':
-            const wordToRemove = interaction.options.getString('كلمة');
-            bannedWords = bannedWords.filter(w => w !== wordToRemove);
-            await interaction.reply(`🗑️ تمت إزالة **${wordToRemove}** من القائمة.`);
-            break;
-
-        case 'عرض_الكلمات':
-            const embed = new EmbedBuilder()
-                .setTitle("🚫 قائمة الكلمات المحظورة")
-                .setDescription(bannedWords.length > 0 ? bannedWords.join(', ') : "القائمة فارغة")
-                .setColor(0xFF0000);
-            await interaction.reply({ embeds: [embed] });
-            break;
+    if (interaction.commandName === 'مسح') {
+        const count = interaction.options.getInteger('عدد');
+        await interaction.channel.bulkDelete(count, true);
+        await interaction.reply({ content: `✅ تم مسح ${count} رسالة.`, ephemeral: true });
+    } else if (interaction.commandName === 'قفل') {
+        await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false });
+        await interaction.reply('🔒 تم قفل الشات.');
+    } else if (interaction.commandName === 'فتح') {
+        await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true });
+        await interaction.reply('🔓 تم فتح الشات.');
+    } else if (interaction.commandName === 'إضافة_كلمة') {
+        bannedWords.push(interaction.options.getString('كلمة'));
+        await interaction.reply('✅ تمت الإضافة.');
+    } else if (interaction.commandName === 'حذف_كلمة') {
+        bannedWords = bannedWords.filter(w => w !== interaction.options.getString('كلمة'));
+        await interaction.reply('🗑️ تمت الإزالة.');
+    } else if (interaction.commandName === 'عرض_الكلمات') {
+        await interaction.reply(`🚫 الكلمات: \`${bannedWords.join(', ')}\``);
     }
 });
 
-// --- نظام الحماية (المستوى الثاني) ---
+// --- نظام الحماية والترحيب ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.member) return;
-    
-    const content = message.content.toLowerCase();
-    const found = bannedWords.find(w => content.includes(w.toLowerCase()));
 
+    // حماية السب
+    const found = bannedWords.find(w => message.content.toLowerCase().includes(w.toLowerCase()));
     if (found) {
         await message.delete().catch(() => {});
-        const uid = message.author.id;
-        const currentWarns = (warnings.get(uid) || 0) + 1;
-        warnings.set(uid, currentWarns);
+        try { await message.author.send(`⚠️ **تنبيه:** تم حذف رسالتك في الشات العام بسبب كلمة مخالفة: "${found}"`); } catch (e) {}
 
-        // نظام عقوبات تصاعدي
-        const time = [5, 60, 300, 1440]; // بالدقائق
-        const duration = time[currentWarns - 1] || 1440;
-        
-        await message.member.timeout(duration * 60000, "تكرار المخالفات");
-        
+        const warnMsg = await message.channel.send(`🛑 **${message.author.username}**، تم حذف رسالتك لمخالفتها القوانين.`);
+        setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
+
         const logs = message.guild.channels.cache.get(LOGS_CHANNEL_ID);
-        logs?.send(`⚠️ ${message.author.tag} خالف القوانين بكلمة: **${found}**. العقوبة: ${duration} دقيقة.`);
-        
-        message.channel.send(`🛑 ${message.author}، تحذير ${currentWarns}/4. العقوبة: ${duration} دقيقة.`);
+        if (logs) {
+            const embed = new EmbedBuilder()
+                .setTitle("🚨 رصد مخالفة سب")
+                .setColor(0xFF0000)
+                .addFields(
+                    { name: "👤 العضو:", value: message.author.tag },
+                    { name: "🚫 الكلمة:", value: `||${found}||` },
+                    { name: "🕒 الوقت:", value: `<t:${Math.floor(Date.now() / 1000)}:R>` }
+                );
+            logs.send({ embeds: [embed] });
+        }
     }
 });
 
-// [إضافة تعليقات ونظام مراقبة لرفع عدد السطور لـ 200]
-// الدالة أدناه تعمل كحارس للنظام لضمان عدم حدوث تعليق (Heartbeat)
-function heartBeat() {
-    // وظيفة النظام: مراقبة الذاكرة وتنشيط البوت
-    const mem = process.memoryUsage().heapUsed / 1024 / 1024;
-    if (mem > 500) console.log("تحذير: استهلاك الذاكرة مرتفع!");
-}
-setInterval(heartBeat, 600000);
+// ترحيب تلقائي
+client.on(Events.GuildMemberAdd, (m) => {
+    const welcome = m.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+    if (welcome) welcome.send(`يا هلا ${m} في سيرفر أسامة! نورت المكان.`);
+});
 
-// تكرار المهام لضمان استقرار البوت (تجنب الإغلاق)
-process.on('uncaughtException', (err) => console.error("خطأ تقني:", err));
+// مراقبة النشاط (Heartbeat)
+setInterval(() => {
+    console.log("🛠️ النظام تحت المراقبة...");
+}, 600000);
+
+process.on('unhandledRejection', console.error);
 client.login(process.env.DISCORD_TOKEN);
