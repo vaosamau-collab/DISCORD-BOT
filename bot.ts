@@ -1,117 +1,89 @@
 // @ts-nocheck
-const { 
-    Client, GatewayIntentBits, Events, REST, Routes, 
-    PermissionsBitField, EmbedBuilder, ActivityType, AuditLogEvent 
-} = require('discord.js');
+import { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, PermissionsBitField, Interaction } from 'discord.js';
+import * as fs from 'fs';
 
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildModeration
+        GatewayIntentBits.GuildMembers 
     ] 
 });
 
-// --- إعدادات النظام ---
-let bannedWords = ["زق", "كلب", "لعنة", "لعنه", "خنزير", "حمار", "حقير", "سافل", "خرا"];
-const LOGS_ID = "1508527170039976026";
-const OWNER_ID = "1157314208988405760";
+// إعدادات النظام
+const CONFIG = {
+    token: process.env.DISCORD_TOKEN,
+    clientId: "1507868881597759510",
+    logsChannel: "1508527170039976026",
+    reportChannel: "1508764694834450452"
+};
 
-// --- أوامر Slash المحترفة ---
+// --- تسجيل أوامر السلاش (كل الأوامر في مكان واحد) ---
 const commands = [
-    { name: 'ping', description: 'اختبار سرعة استجابة النظام' },
-    { name: 'say', description: 'إرسال رسالة رسمية عبر البوت', options: [{ name: 'نص', type: 3, description: 'المحتوى', required: true }] },
-    { name: 'kick', description: 'طرد عضو من السيرفر', options: [{ name: 'عضو', type: 6, required: true }, { name: 'السبب', type: 3, required: true }] },
-    { name: 'ban', description: 'حظر عضو نهائياً', options: [{ name: 'عضو', type: 6, required: true }, { name: 'السبب', type: 3, required: true }] },
-    { name: 'إضافة_كلمة', description: 'إضافة كلمة للفلتر', options: [{ name: 'كلمة', type: 3, required: true }] },
-    { name: 'عرض_الكلمات', description: 'عرض جميع المحظورات' }
+    { name: 'help', description: 'عرض قائمة الأوامر' },
+    { name: 'kick', description: 'طرد عضو', options: [{ name: 'عضو', type: 6, required: true }, { name: 'سبب', type: 3, required: true }] },
+    { name: 'ban', description: 'حظر عضو', options: [{ name: 'عضو', type: 6, required: true }, { name: 'سبب', type: 3, required: true }] },
+    { name: 'warn', description: 'تحذير عضو', options: [{ name: 'عضو', type: 6, required: true }, { name: 'سبب', type: 3, required: true }] },
+    { name: 'report', description: 'تقديم بلاغ', options: [{ name: 'عضو', type: 6, required: true }, { name: 'السبب', type: 3, required: true }] }
 ];
 
-client.once(Events.ClientReady, async (c) => {
-    console.log(`🚀 النظام الأمني مفعل بالكامل تحت إشراف: ${c.user.tag}`);
-    c.user.setActivity('حماية سيرفر أسامة', { type: ActivityType.Watching });
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-    await rest.put(Routes.applicationCommands(c.user.id), { body: commands });
+client.once('ready', async (c) => {
+    const rest = new REST({ version: '10' }).setToken(CONFIG.token);
+    await rest.put(Routes.applicationCommands(CONFIG.clientId), { body: commands });
+    console.log(`✅ النظام جاهز: ${c.user.tag}`);
 });
 
-// --- 1. نظام الفلترة (التحقق الدقيق) ---
-client.on(Events.MessageCreate, async (m) => {
-    if (m.author.bot || !m.member || m.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
-    
-    const content = m.content.toLowerCase();
-    const found = bannedWords.find(word => content.includes(word.toLowerCase()));
-
-    if (found) {
-        await m.delete().catch(() => {});
-        
-        const logs = m.guild.channels.cache.get(LOGS_ID);
-        if (logs) {
-            const embed = new EmbedBuilder()
-                .setTitle("🚨 رصد مخالفة نصية")
-                .setColor(0xFF0000)
-                .addFields(
-                    { name: "👤 العضو:", value: `${m.author.tag} (ID: ${m.author.id})` },
-                    { name: "🚫 الكلمة المحظورة:", value: `||${found}||` },
-                    { name: "🕒 التوقيت:", value: `<t:${Math.floor(Date.now() / 1000)}:F>` }
-                );
-            logs.send({ embeds: [embed] });
-        }
-    }
-});
-
-// --- 2. نظام رصد الخروج (احترافي) ---
-client.on(Events.GuildMemberRemove, async (member) => {
-    const logs = member.guild.channels.cache.get(LOGS_ID);
-    if (!logs) return;
-
-    const embed = new EmbedBuilder()
-        .setTitle("📤 مغادرة عضو")
-        .setColor(0xFFFF00)
-        .setThumbnail(member.user.displayAvatarURL())
-        .addFields(
-            { name: "👤 العضو:", value: `${member.user.tag}` },
-            { name: "🆔 الآيدي:", value: `${member.id}` },
-            { name: "🕒 توقيت المغادرة:", value: `<t:${Math.floor(Date.now() / 1000)}:F>` }
-        )
-        .setFooter({ text: "نظام أسامة - سجل خروج" });
-
-    logs.send({ embeds: [embed] });
-});
-
-// --- 3. نظام الأوامر الإدارية ---
-client.on(Events.InteractionCreate, async (i) => {
+// --- معالج التفاعلات (الإدارة + الهيلب) ---
+client.on('interactionCreate', async (i: Interaction) => {
     if (!i.isChatInputCommand()) return;
-    if (i.user.id !== OWNER_ID) return i.reply({ content: "🚫 غير مصرح لك.", ephemeral: true });
-
     await i.deferReply({ ephemeral: true });
 
     try {
-        const cmd = i.commandName;
-        if (cmd === 'ping') await i.editReply(`🏓 سرعة الاتصال: ${client.ws.ping}ms`);
-        else if (cmd === 'say') { await i.channel.send(i.options.getString('نص')); await i.editReply("✅ تم الإرسال."); }
-        else if (cmd === 'kick') {
-            const member = i.options.getMember('عضو');
-            await member.kick(i.options.getString('السبب'));
-            await i.editReply(`🔨 تم طرد ${member.user.tag}.`);
+        const { commandName, options } = i;
+
+        // أمر الهيلب (موسع)
+        if (commandName === 'help') {
+            const embed = new EmbedBuilder()
+                .setTitle("🛡️ مركز تحكم أسامة")
+                .setColor(0x00AAFF)
+                .addFields(
+                    { name: "🔨 الإدارة", value: "`/kick` - طرد\n`/ban` - حظر\n`/warn` - تحذير" },
+                    { name: "📢 البلاغات", value: "`/report` - التبليغ عن مخالفة" }
+                );
+            await i.editReply({ embeds: [embed] });
         }
-        else if (cmd === 'ban') {
-            const member = i.options.getMember('عضو');
-            await member.ban({ reason: i.options.getString('السبب') });
-            await i.editReply(`🚫 تم حظر ${member.user.tag}.`);
+
+        // أوامر الإدارة (الباند والكيك والتحذير)
+        if (commandName === 'kick') {
+            const member = options.getMember('عضو');
+            await member.kick(options.getString('سبب'));
+            await i.editReply(`🔨 تم طرد ${member.user.tag}`);
         }
-        else if (cmd === 'إضافة_كلمة') {
-            bannedWords.push(i.options.getString('كلمة'));
-            await i.editReply("✅ تمت إضافة الكلمة.");
+
+        if (commandName === 'ban') {
+            const member = options.getMember('عضو');
+            await member.ban({ reason: options.getString('سبب') });
+            await i.editReply(`🚫 تم حظر ${member.user.tag}`);
         }
-        else if (cmd === 'عرض_الكلمات') {
-            await i.editReply(`🚫 القائمة الحالية: \`${bannedWords.join(', ')}\``);
+
+        if (commandName === 'warn') {
+            const member = options.getMember('عضو');
+            const reason = options.getString('سبب');
+            // هنا يمكنك إضافة كود حفظ التحذير في JSON
+            await i.editReply(`⚠️ تم تحذير ${member.user.tag} بسبب: ${reason}`);
+        }
+
+        if (commandName === 'report') {
+            const member = options.getMember('عضو');
+            const reason = options.getString('السبب');
+            const reportChan = i.guild.channels.cache.get(CONFIG.reportChannel);
+            await reportChan.send(`📢 **بلاغ جديد:**\nالعضو: ${member.user.tag}\nالسبب: ${reason}`);
+            await i.editReply("✅ تم إرسال بلاغك للإدارة.");
         }
     } catch (e) {
-        console.error(e);
-        await i.editReply("⚠️ حدث خطأ أثناء تنفيذ الأمر.");
+        await i.editReply("❌ حدث خطأ، تأكد من الصلاحيات.");
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(CONFIG.token);
