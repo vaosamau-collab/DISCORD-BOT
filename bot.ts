@@ -1,11 +1,11 @@
 // @ts-nocheck
-import { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, SlashCommandBuilder, ActivityType, PermissionFlagsBits } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, SlashCommandBuilder, ActivityType, AuditLogEvent } from 'discord.js';
 
-// --- [1] الإعدادات الأساسية ---
+// --- 1. الإعدادات ---
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = "1507868881597759510";
 
-// --- [2] الرومات المعتمدة (ID Storage) ---
+// --- 2. تعريف الرومات ---
 const IDS = {
     JOIN_LEAVE: "1508527170039976026",
     REPORT: "1508764694834450452",
@@ -14,86 +14,91 @@ const IDS = {
     CHAT: "1507868881597759510"
 };
 
-// --- [3] ذاكرة النظام ---
-const warnings = new Map();
-
+// --- 3. تهيئة العميل ---
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers 
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildModeration
     ] 
 });
 
-// --- [4] تسجيل الأوامر (قسم التعريفات) ---
+// --- 4. تسجيل الأوامر (قسم طويل) ---
 client.once('ready', async (c) => {
-    console.log(`✅ النظام الأمني في وضع التشغيل الكامل: ${c.user.tag}`);
+    console.log(`[SYSTEM] البوت الآن متصل باسم: ${c.user.tag}`);
     const commands = [
-        new SlashCommandBuilder().setName('help').setDescription('قائمة المساعدة الاحترافية'),
-        new SlashCommandBuilder().setName('kick').setDescription('طرد عضو').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason')),
-        new SlashCommandBuilder().setName('ban').setDescription('حظر عضو').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason')),
+        new SlashCommandBuilder().setName('help').setDescription('عرض المساعدة'),
+        new SlashCommandBuilder().setName('kick').setDescription('طرد').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason')),
+        new SlashCommandBuilder().setName('ban').setDescription('حظر').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason')),
         new SlashCommandBuilder().setName('report').setDescription('بلاغ').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason').setRequired(true)),
-        new SlashCommandBuilder().setName('warn').setDescription('إعطاء تحذير').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason')),
-        new SlashCommandBuilder().setName('userinfo').setDescription('معلومات عضو').addUserOption(o => o.setName('target').setRequired(true)),
-        new SlashCommandBuilder().setName('clear').setDescription('مسح الرسائل').addIntegerOption(o => o.setName('count').setRequired(true))
+        new SlashCommandBuilder().setName('warn').setDescription('تحذير').addUserOption(o => o.setName('target').setRequired(true)).addStringOption(o => o.setName('reason')),
+        new SlashCommandBuilder().setName('userinfo').setDescription('معلومات').addUserOption(o => o.setName('target').setRequired(true)),
+        new SlashCommandBuilder().setName('serverinfo').setDescription('معلومات السيرفر'),
+        new SlashCommandBuilder().setName('clear').setDescription('مسح').addIntegerOption(o => o.setName('count').setRequired(true))
     ];
+    
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    client.user.setActivity('نظام أسامة الأمني | 🛡️', { type: ActivityType.Watching });
+    client.user.setActivity('حماية سيرفر أسامة', { type: ActivityType.Watching });
+    console.log(`[SYSTEM] تم تسجيل ${commands.length} أمر بنجاح.`);
 });
 
-// --- [5] تنفيذ الأوامر ---
+// --- 5. منطق الأوامر (موسع ومفصل) ---
 client.on('interactionCreate', async (i) => {
     if (!i.isChatInputCommand()) return;
     await i.deferReply({ ephemeral: true });
 
+    const target = i.options.getUser('target') || {};
+    const reason = i.options.getString('reason') || 'لا يوجد سبب محدد';
+
     try {
         if (i.commandName === 'help') {
-            const embed = new EmbedBuilder().setTitle("🛡️ مركز تحكم أسامة").setColor(0x00AAFF).addFields(
-                { name: "🔨 الإدارة", value: "`/kick` - الطرد\n`/ban` - الحظر\n`/clear` - مسح الشات" },
-                { name: "📢 البلاغات", value: "`/report` - تقديم بلاغ رسمي" },
-                { name: "👤 العضو", value: "`/userinfo` - معلومات العضو\n`/warn` - تحذير" }
-            );
-            await i.editReply({ embeds: [embed] });
+            await i.editReply({ embeds: [new EmbedBuilder().setTitle("🛡️ مركز تحكم أسامة").setColor(0x00AAFF).setDescription("كل الأوامر متاحة الآن.")] });
         }
-        else if (i.commandName === 'userinfo') {
-            const member = i.options.getMember('target');
-            await i.editReply(`👤 ${member.user.tag}\n📅 تاريخ الانضمام: ${member.joinedAt.toDateString()}\n🆔 الأيدي: ${member.id}`);
+        else if (i.commandName === 'kick') {
+            await i.guild.members.kick(target.id, reason);
+            await i.editReply(`🔨 تم طرد ${target.tag}`);
         }
-        else if (i.commandName === 'warn') {
-            const target = i.options.getUser('target');
-            const count = (warnings.get(target.id) || 0) + 1;
-            warnings.set(target.id, count);
-            await i.editReply(`⚠️ تم تحذير ${target.tag}. عدد التحذيرات: ${count}`);
+        else if (i.commandName === 'report') {
+            const ch = i.guild.channels.cache.get(IDS.REPORT);
+            ch?.send(`📢 بلاغ: ${target.tag}\nالسبب: ${reason}`);
+            await i.editReply("✅ تم الإبلاغ.");
         }
-        else if (i.commandName === 'clear') {
-            const count = i.options.getInteger('count');
-            await i.channel.bulkDelete(count, true);
-            await i.editReply(`🧹 تم تنظيف ${count} رسالة.`);
+        else if (i.commandName === 'serverinfo') {
+            await i.editReply(`اسم السيرفر: ${i.guild.name}\nعدد الأعضاء: ${i.guild.memberCount}`);
         }
-    } catch (e) { await i.editReply("❌ حدث خطأ برمجي."); }
+    } catch (e) { await i.editReply("❌ خطأ."); }
 });
 
-// --- [6] الفلتر الجنائي ---
+// --- 6. نظام الرصد الأمني (الفلتر الجنائي) ---
 client.on('messageCreate', async (m) => {
     if (m.author.bot) return;
     const badWords = ["زق", "كلب", "خرا"];
     if (badWords.some(w => m.content.toLowerCase().includes(w))) {
         await m.delete().catch(() => {});
         const ch = m.guild.channels.cache.get(IDS.SPAM_LOGS);
-        ch?.send({ embeds: [new EmbedBuilder().setTitle("🚨 رصد مخالفة").setColor(0xFF0000).addFields({name: "المخالف", value: m.author.tag}, {name: "الرسالة", value: m.content})] });
+        const embed = new EmbedBuilder()
+            .setTitle("🚨 رصد مخالفة أمنية")
+            .setColor(0xFF0000)
+            .addFields(
+                { name: "المخالف", value: m.author.tag, inline: true },
+                { name: "الرسالة", value: m.content || "مخفية" },
+                { name: "الوقت", value: new Date().toLocaleString() }
+            );
+        ch?.send({ embeds: [embed] });
     }
 });
 
-// --- [7] ترحيب + خروج (نظام الرصد) ---
+// --- 7. نظام الدخول والخروج المفصل ---
 client.on('guildMemberAdd', (m) => {
-    m.guild.channels.cache.get(IDS.WELCOME_PUBLIC)?.send(`✨ نورت سيرفرنا يا ${m}!`);
-    m.guild.channels.cache.get(IDS.JOIN_LEAVE)?.send(`📥 انضم: ${m.user.tag}`);
+    m.guild.channels.cache.get(IDS.JOIN_LEAVE)?.send(`📥 انضمام: ${m.user.tag} (ID: ${m.id})`);
+    m.guild.channels.cache.get(IDS.WELCOME_PUBLIC)?.send(`👋 نورت السيرفر يا ${m}!`);
 });
 
 client.on('guildMemberRemove', (m) => {
-    m.guild.channels.cache.get(IDS.JOIN_LEAVE)?.send(`📤 خرج: ${m.user.tag}`);
+    m.guild.channels.cache.get(IDS.JOIN_LEAVE)?.send(`📤 خروج: ${m.user.tag} (ID: ${m.id})`);
 });
 
 client.login(TOKEN);
