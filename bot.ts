@@ -5,68 +5,70 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers] 
 });
 
-// --- الإعدادات ---
-let bannedWords = ["سب", "شتم", "ممنوع", "زق", "كلب", "لعنة"];
+let bannedWords = ["سب", "شتم", "ممنوع", "زق", "كلب", "لعنة", "لعنه"];
 const LOGS_ID = "1508091945883275495";
 const WELCOME_ID = "1508087523820310578";
 const GENERAL_ID = "1507868881597759510";
 const MY_ID = "1157314208988405760";
 
-// --- أوامر الـ Slash الشاملة ---
+// --- قائمة الأوامر المحدثة مع أمر say ---
 const commands = [
     { name: 'ping', description: 'اختبار سرعة البوت' },
     { name: 'مسح', description: 'مسح رسائل', options: [{ name: 'عدد', type: 4, description: 'العدد (1-100)', required: true }] },
-    { name: 'قفل', description: 'قفل الشات العام' },
-    { name: 'فتح', description: 'فتح الشات العام' },
-    { name: 'إضافة_كلمة', description: 'إضافة كلمة للمحظورات', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
-    { name: 'حذف_كلمة', description: 'إزالة كلمة من المحظورات', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
+    { name: 'say', description: 'اجعل البوت يكتب رسالة', options: [{ name: 'نص', type: 3, description: 'الرسالة التي تريدها', required: true }] },
+    { name: 'قفل', description: 'قفل الشات' },
+    { name: 'فتح', description: 'فتح الشات' },
+    { name: 'إضافة_كلمة', description: 'إضافة كلمة للحظر', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
+    { name: 'حذف_كلمة', description: 'حذف كلمة من الحظر', options: [{ name: 'كلمة', type: 3, description: 'الكلمة', required: true }] },
     { name: 'عرض_الكلمات', description: 'عرض الكلمات المحظورة' }
 ];
 
 client.once(Events.ClientReady, async () => {
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log(`✅ البوت نشط بجميع الأوامر: ${client.user.tag}`);
-
-    // نظام الإنعاش التلقائي
-    setInterval(() => {
-        const chan = client.channels.cache.get(GENERAL_ID);
-        if (chan) chan.send("👋 السيرفر هادي، نبي تفاعل يا أبطال!");
-    }, 3600000);
+    console.log(`✅ النظام مفعل بالكامل.`);
 });
 
 // --- معالجة الأوامر ---
 client.on(Events.InteractionCreate, async (i) => {
     if (!i.isChatInputCommand()) return;
-    if (i.user.id !== MY_ID) return i.reply({ content: "🚫 هذا الأمر خاص بالمطور أسامة.", ephemeral: true });
+    if (i.user.id !== MY_ID) return i.reply({ content: "🚫 هذا الأمر خاص بأسامة.", ephemeral: true });
 
-    const cmd = i.commandName;
-    if (cmd === 'ping') await i.reply('🏓 Pong!');
-    else if (cmd === 'مسح') {
-        const count = i.options.getInteger('عدد');
-        await i.channel.bulkDelete(count, true);
-        await i.reply({ content: `✅ تم مسح ${count} رسالة.`, ephemeral: true });
-    } else if (cmd === 'قفل') {
-        await i.channel.permissionOverwrites.edit(i.guild.id, { SendMessages: false });
-        await i.reply('🔒 تم قفل الشات.');
-    } else if (cmd === 'فتح') {
-        await i.channel.permissionOverwrites.edit(i.guild.id, { SendMessages: true });
-        await i.reply('🔓 تم فتح الشات.');
-    } else if (cmd === 'إضافة_كلمة') {
-        bannedWords.push(i.options.getString('كلمة'));
-        await i.reply(`✅ تمت إضافة الكلمة بنجاح.`);
-    } else if (cmd === 'حذف_كلمة') {
-        bannedWords = bannedWords.filter(w => w !== i.options.getString('كلمة'));
-        await i.reply(`🗑️ تمت إزالة الكلمة بنجاح.`);
-    } else if (cmd === 'عرض_الكلمات') {
-        await i.reply(`🚫 الكلمات المحظورة: \`${bannedWords.join(', ')}\``);
+    switch (i.commandName) {
+        case 'ping': await i.reply('🏓 Pong!'); break;
+        case 'say': await i.channel.send(i.options.getString('نص')); await i.reply({ content: "✅ تم الإرسال.", ephemeral: true }); break;
+        case 'مسح':
+            const count = i.options.getInteger('عدد');
+            await i.channel.bulkDelete(count, true);
+            await i.reply({ content: `✅ تم مسح ${count} رسالة.`, ephemeral: true });
+            break;
+        case 'قفل':
+            await i.channel.permissionOverwrites.edit(i.guild.id, { SendMessages: false });
+            await i.reply('🔒 تم القفل.');
+            break;
+        case 'فتح':
+            await i.channel.permissionOverwrites.edit(i.guild.id, { SendMessages: true });
+            await i.reply('🔓 تم الفتح.');
+            break;
+        case 'إضافة_كلمة':
+            bannedWords.push(i.options.getString('كلمة'));
+            await i.reply(`✅ تمت إضافة: ${i.options.getString('كلمة')}`);
+            break;
+        case 'حذف_كلمة':
+            bannedWords = bannedWords.filter(w => w !== i.options.getString('كلمة'));
+            await i.reply(`🗑️ تمت إزالة: ${i.options.getString('كلمة')}`);
+            break;
+        case 'عرض_الكلمات':
+            await i.reply(`🚫 الكلمات: \`${bannedWords.join(', ')}\``);
+            break;
     }
 });
 
-// --- الفلتر الشامل (بدون أوامر) ---
+// --- الفلتر الشامل (يفحص الجميع بما فيهم أنت) ---
 client.on(Events.MessageCreate, async (m) => {
-    if (m.author.bot || !m.member || m.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+    if (m.author.bot || !m.member) return;
     
+    // التحقق من النص (بدون تجاهل الأدمين لتتأكد بنفسك من عمل البوت)
     const cleanContent = m.content.toLowerCase().replace(/[^\u0621-\u064A\u0660-\u0669a-zA-Z]/g, '').replace(/\s+/g, '');
     const found = bannedWords.find(word => {
         const cleanBanned = word.toLowerCase().replace(/[^\u0621-\u064A\u0660-\u0669a-zA-Z]/g, '');
@@ -75,27 +77,15 @@ client.on(Events.MessageCreate, async (m) => {
 
     if (found) {
         await m.delete().catch(() => {});
-        m.author.send(`⚠️ تم حذف رسالتك بسبب كلمة ممنوعة: "${found}"`).catch(() => {});
-        
         const logs = m.guild.channels.cache.get(LOGS_ID);
         if (logs) {
-            const embed = new EmbedBuilder()
-                .setTitle("🚨 رصد مخالفة (فلتر شامل)")
-                .setColor(0xFF0000)
-                .addFields(
-                    { name: "العضو:", value: m.author.tag },
-                    { name: "الكلمة:", value: `||${found}||` },
-                    { name: "الوقت:", value: `<t:${Math.floor(Date.now() / 1000)}:R>` }
-                );
-            logs.send({ embeds: [embed] });
+            logs.send({ embeds: [new EmbedBuilder().setTitle("🚨 مخالفة").setDescription(`العضو: ${m.author.tag}\nالكلمة: ||${found}||`).setColor(0xFF0000)] });
         }
     }
 });
 
-// --- ترحيب ---
 client.on(Events.GuildMemberAdd, (m) => {
-    client.channels.cache.get(WELCOME_ID)?.send(`أهلاً بك ${m} في سيرفر أسامة! نورتنا.`);
+    client.channels.cache.get(WELCOME_ID)?.send(`يا هلا ${m} نورت سيرفر أسامة!`);
 });
 
-process.on('unhandledRejection', console.error);
 client.login(process.env.DISCORD_TOKEN);
