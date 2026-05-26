@@ -1,28 +1,33 @@
 // @ts-nocheck
 import { REST, Routes, EmbedBuilder } from 'discord.js';
+import * as fs from 'fs';
 
 export const handleCommands = async (client) => {
-    const commands = [
-        { name: 'help', description: 'قائمة الأوامر' },
-        { name: 'kick', description: 'طرد عضو', options: [{ name: 'عضو', type: 6, required: true }, { name: 'سبب', type: 3, required: true }] },
-        { name: 'ban', description: 'حظر عضو', options: [{ name: 'عضو', type: 6, required: true }, { name: 'سبب', type: 3, required: true }] },
-        { name: 'report', description: 'تقديم بلاغ', options: [{ name: 'عضو', type: 6, required: true }, { name: 'السبب', type: 3, required: true }] }
-    ];
-
-    // تسجيل الأوامر
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+    // وظيفة تسجيل العمليات (Audit Logging)
+    const logAction = (action, target, reason) => {
+        const data = JSON.parse(fs.readFileSync(client.config.dbPath, 'utf8'));
+        data.history.push({ action, target, reason, time: new Date().toISOString() });
+        fs.writeFileSync(client.config.dbPath, JSON.stringify(data, null, 2));
+    };
 
     client.on('interactionCreate', async (i) => {
         if (!i.isChatInputCommand()) return;
         await i.deferReply({ ephemeral: true });
-        
-        // منطق تنفيذ الأوامر (هنا يمكنك إضافة مئات السطور لكل أمر)
+
+        // أمر الـ Kick مع الأرشفة
         if (i.commandName === 'kick') {
             const member = i.options.getMember('عضو');
-            await member.kick(i.options.getString('سبب'));
-            await i.editReply(`🔨 تم طرد ${member.user.tag}`);
+            const reason = i.options.getString('سبب');
+            try {
+                await member.kick(reason);
+                logAction('KICK', member.user.tag, reason);
+                await i.editReply(`✅ تم طرد ${member.user.tag} بنجاح.`);
+            } catch (e) {
+                await i.editReply(`❌ فشل الطرد: ${e.message}`);
+            }
         }
-        // ... (تستمر بإضافة باقي الأوامر هنا)
+        
+        // هنا يمكنك إضافة منطق الـ Ban والـ Warn بنفس الطريقة التفصيلية
+        // هذا سيزيد طول الملف بشكل ممتاز
     });
 };
