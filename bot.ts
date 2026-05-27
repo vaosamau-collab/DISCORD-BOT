@@ -1,98 +1,57 @@
 // @ts-nocheck
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionsBitField } from 'discord.js';
 
-const client = new Client({ 
-    intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers
-    ] 
+const client = new Client({ intents: [131071] });
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = "1507868881597759510";
+const TICKET_CHANNEL_ID = "1508764694834450452"; // الروم اللي حددته
+
+client.once('ready', async () => {
+    const commands = [
+        new SlashCommandBuilder().setName('ping').setDescription('فحص السرعة'),
+        new SlashCommandBuilder().setName('ticket').setDescription('فتح تذكرة دعم فني')
+    ];
+    await new REST({ version: '10' }).setToken(TOKEN).put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log(`✅ البوت العملاق جاهز ومفعل نظام التكت: ${client.user.tag}`);
 });
 
-const CONFIG = {
-    LOG_CHANNEL: "1508091945883275495",
-    WELCOME_CHANNEL: "1508087523820310578"
-};
+client.on('interactionCreate', async (i) => {
+    if (!i.isChatInputCommand()) return;
 
-client.once('ready', () => {
-    console.log(`✅ النظام الأمني العملاق يعمل: ${client.user.tag}`);
-    client.user.setActivity('حماية سيرفر أسامة | !help', { type: 'WATCHING' });
+    if (i.commandName === 'ticket') {
+        const channelName = `ticket-${i.user.username}`;
+        const ticketChannel = await i.guild.channels.create({
+            name: channelName,
+            type: ChannelType.GuildText,
+            parent: null, // تقدر تحط ID التصنيف هنا لو تبي
+            permissionOverwrites: [
+                { id: i.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: i.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+            ]
+        });
+        await i.reply({ content: `✅ تم فتح التكت الخاص بك في الروم: ${ticketChannel}`, ephemeral: true });
+        ticketChannel.send(`👋 أهلاً ${i.user}، كيف نقدر نساعدك؟`);
+    }
+
+    if (i.commandName === 'ping') await i.reply(`⚡ البينج: ${client.ws.ping}ms`);
 });
 
 client.on('messageCreate', async (m) => {
     if (m.author.bot) return;
 
-    // 1. الفلتر الجنائي (مطور)
+    // الفلتر اللي اعتمدناه
     const badWords = ["زق", "كلب", "خرا"];
     if (badWords.some(w => m.content.toLowerCase().includes(w))) {
         await m.delete().catch(() => {});
-        m.channel.send(`⚠️ تم حذف رسالة مخالفة من ${m.author}`).then(msg => setTimeout(() => msg.delete(), 3000));
-        const log = m.guild.channels.cache.get(CONFIG.LOG_CHANNEL);
-        log?.send(`🚨 **مخالفة جديدة**\nالمخالف: ${m.author.tag}\nالرسالة: ${m.content}`);
+        m.channel.send(`⚠️ تم حذف رسالة مخالفة من ${m.author.username}`).then(msg => setTimeout(() => msg.delete(), 3000));
     }
 
-    if (!m.content.startsWith('!')) return;
-    const args = m.content.slice(1).split(/ +/);
-    const cmd = args.shift().toLowerCase();
-
-    // 2. أوامر الإدارة (مطورة)
-    if (cmd === 'kick') {
-        const target = m.mentions.members.first();
-        if (!target) return m.reply("❌ حدد العضو!");
-        await target.kick().then(() => m.reply(`✅ تم طرد ${target.user.tag}`)).catch(() => m.reply("❌ خطأ: تأكد من صلاحياتي"));
-    }
-    
-    if (cmd === 'ban') {
-        const target = m.mentions.members.first();
-        if (!target) return m.reply("❌ حدد العضو!");
-        await target.ban().then(() => m.reply(`✅ تم حظر ${target.user.tag}`)).catch(() => m.reply("❌ خطأ: تأكد من صلاحياتي"));
-    }
-
-    if (cmd === 'clear') {
-        const amount = parseInt(args[0]);
-        if (!amount || amount > 100) return m.reply("❌ حدد رقم (1-100)");
-        await m.channel.bulkDelete(amount, true);
-        m.reply(`🧹 تم تنظيف ${amount} رسالة`).then(msg => setTimeout(() => msg.delete(), 3000));
-    }
-
-    // 3. أوامر المعلومات (جديد وضخم)
-    if (cmd === 'userinfo') {
-        const target = m.mentions.members.first() || m.member;
-        const embed = new EmbedBuilder()
-            .setTitle(`👤 معلومات العضو: ${target.user.username}`)
-            .addFields(
-                { name: "تاريخ الانضمام", value: target.joinedAt.toDateString() },
-                { name: "الآيدي", value: target.id }
-            ).setColor(0x00AAFF);
-        m.reply({ embeds: [embed] });
-    }
-
-    if (cmd === 'serverinfo') {
-        const embed = new EmbedBuilder()
-            .setTitle(`🏠 سيرفر: ${m.guild.name}`)
-            .addFields(
-                { name: "عدد الأعضاء", value: `${m.guild.memberCount}`, inline: true },
-                { name: "صاحب السيرفر", value: `<@${m.guild.ownerId}>`, inline: true }
-            ).setColor(0xFFFF00);
-        m.reply({ embeds: [embed] });
-    }
-
-    if (cmd === 'help') {
-        const embed = new EmbedBuilder()
-            .setTitle("🛡️ مركز التحكم - نظام أسامة الضخم")
-            .setDescription("الأوامر المتاحة:")
-            .addFields(
-                { name: "🔨 الإدارة", value: "`!kick`, `!ban`, `!clear`" },
-                { name: "ℹ️ المعلومات", value: "`!userinfo`, `!serverinfo`" }
-            ).setColor(0x00FF00);
-        m.reply({ embeds: [embed] });
+    // أمر إغلاق التكت (اكتب !close في التكت)
+    if (m.content === '!close' && m.channel.name.startsWith('ticket-')) {
+        m.channel.send("🔒 جاري إغلاق التكت...");
+        setTimeout(() => m.channel.delete(), 3000);
     }
 });
 
-client.on('guildMemberAdd', (member) => {
-    const welcome = member.guild.channels.cache.get(CONFIG.WELCOME_CHANNEL);
-    welcome?.send(`👋 أهلاً بك يا ${member} في سيرفر أسامة! نورتنا.`);
-});
-
-client.login(process.env.DISCORD_TOKEN);
+client.login(TOKEN);
