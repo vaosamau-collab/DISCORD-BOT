@@ -1,56 +1,63 @@
 // @ts-nocheck
-import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionsBitField } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, ActivityType } from 'discord.js';
 
 const client = new Client({ intents: [131071] });
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = "1507868881597759510";
-const TICKET_CHANNEL_ID = "1508764694834450452"; // الروم اللي حددته
+const { DISCORD_TOKEN: TOKEN, CLIENT_ID = "1507868881597759510" } = process.env;
+
+// --- نظام البناء الفخم ---
+const createEmbed = (title, desc, color = 0x2b2d31) => new EmbedBuilder().setTitle(title).setDescription(desc).setColor(color).setTimestamp();
 
 client.once('ready', async () => {
     const commands = [
-        new SlashCommandBuilder().setName('ping').setDescription('فحص السرعة'),
-        new SlashCommandBuilder().setName('ticket').setDescription('فتح تذكرة دعم فني')
+        new SlashCommandBuilder().setName('setup').setDescription('إعداد النظام بالكامل'),
+        new SlashCommandBuilder().setName('ping').setDescription('فحص الاستجابة')
     ];
     await new REST({ version: '10' }).setToken(TOKEN).put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log(`✅ البوت العملاق جاهز ومفعل نظام التكت: ${client.user.tag}`);
+    client.user.setActivity('نظام أسامة العملاق | 🛡️', { type: ActivityType.Watching });
+    console.log(`🚀 المحرك الضخم يعمل: ${client.user.tag}`);
 });
 
+// --- التفاعل (أزرار التكت + أوامر السلاش) ---
 client.on('interactionCreate', async (i) => {
-    if (!i.isChatInputCommand()) return;
-
-    if (i.commandName === 'ticket') {
-        const channelName = `ticket-${i.user.username}`;
-        const ticketChannel = await i.guild.channels.create({
-            name: channelName,
-            type: ChannelType.GuildText,
-            parent: null, // تقدر تحط ID التصنيف هنا لو تبي
-            permissionOverwrites: [
-                { id: i.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: i.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-            ]
-        });
-        await i.reply({ content: `✅ تم فتح التكت الخاص بك في الروم: ${ticketChannel}`, ephemeral: true });
-        ticketChannel.send(`👋 أهلاً ${i.user}، كيف نقدر نساعدك؟`);
+    if (i.isChatInputCommand() && i.commandName === 'setup') {
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('tkt').setLabel('فتح تذكرة دعم 📩').setStyle(ButtonStyle.Primary)
+        );
+        await i.reply({ content: "### 🎫 مركز الدعم الفني\nاضغط الزر أدناه لفتح تذكرة جديدة:", components: [row] });
     }
-
-    if (i.commandName === 'ping') await i.reply(`⚡ البينج: ${client.ws.ping}ms`);
+    if (i.isButton() && i.customId === 'tkt') {
+        const t = await i.guild.channels.create({
+            name: `tkt-${i.user.username}`, type: ChannelType.GuildText,
+            permissionOverwrites: [{ id: i.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] }, { id: i.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }]
+        });
+        await i.reply({ content: `✅ تم إنشاء ${t}`, ephemeral: true });
+        t.send({ embeds: [createEmbed("تذكرة جديدة", `مرحباً ${i.user}، فريق الدعم سيتواصل معك قريباً.`)] });
+    }
 });
 
+// --- النظام النصي العملاق (فلتر + إدارة) ---
 client.on('messageCreate', async (m) => {
     if (m.author.bot) return;
 
-    // الفلتر اللي اعتمدناه
+    // 1. نظام الفلتر الذكي
     const badWords = ["زق", "كلب", "خرا"];
     if (badWords.some(w => m.content.toLowerCase().includes(w))) {
         await m.delete().catch(() => {});
-        m.channel.send(`⚠️ تم حذف رسالة مخالفة من ${m.author.username}`).then(msg => setTimeout(() => msg.delete(), 3000));
+        return m.channel.send({ embeds: [createEmbed("⚠️ تحذير", `${m.author}، الكلمات المخالفة ممنوعة!`, 0xff0000)] }).then(msg => setTimeout(() => msg.delete(), 3000));
     }
 
-    // أمر إغلاق التكت (اكتب !close في التكت)
-    if (m.content === '!close' && m.channel.name.startsWith('ticket-')) {
-        m.channel.send("🔒 جاري إغلاق التكت...");
-        setTimeout(() => m.channel.delete(), 3000);
+    // 2. أوامر الإدارة المتطورة
+    if (!m.content.startsWith('!')) return;
+    const args = m.content.slice(1).split(/ +/);
+    const cmd = args.shift().toLowerCase();
+
+    if (cmd === 'close' && m.channel.name.startsWith('tkt-')) {
+        m.channel.send("🔒 إغلاق التذكرة بعد 5 ثواني..");
+        setTimeout(() => m.channel.delete(), 5000);
+    }
+    if (cmd === 'clear') {
+        const n = parseInt(args[0]) || 1;
+        await m.channel.bulkDelete(n, true).then(() => m.channel.send("🧹 تم تنظيف الشات."));
     }
 });
 
