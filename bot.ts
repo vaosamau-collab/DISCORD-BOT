@@ -1,8 +1,8 @@
 // @ts-nocheck
 /**
- * 👑 نظام الخصومة والفزعات المتكامل لسيرفر أسامة (Na5p)
- * التحديث الأخير: نقل أمر المساعدة ليكون المرجع المحايد (?help)
+ * 👑 نظام الخصومة المتكامل لسيرفر أسامة (Na5p)
  * الأطراف: جبهة عساكر الإدارة (!) ضد جبهة ثوار الشوارع (-)
+ * المرجع المحايد: (?help)
  */
 
 import { 
@@ -28,33 +28,18 @@ const client = new Client({
 const TOKEN = process.env.DISCORD_TOKEN;
 const ADMIN_PREFIX = "!"; 
 const USER_PREFIX = "-";  
-const HELP_PREFIX = "?"; // علامة المرجع المحايد
+const HELP_PREFIX = "?"; 
 
 const BLACKLISTED_WORDS = ["زق", "كلب", "خرا"];
-
-// قائمة سيناريوهات الفزعة العشوائية لـأمر الهيلة الشعبي (-)
-const SHABI_HAILA_SCENARIOS = [
-    "🚨 **[ غارة الشوارع ]:** فزعتنا وصلت! شباب الحارة نزلوا بجموس حمر، كسروا مكاتب الإدارة وقبعات العساكر، والحين منكسين لوحة الـ (!) في نص السيرفر! الـ (-) يكتب التاريخ يا أسامة! 🦅🔥",
-    "🎤 **[ ديس الساحة الجماعي ]:** زلزلنا الأرض وجيناكم.. فزعة الهيلة تعمي عيونكم! قروب الـ (-) نزل ديس تراك 3 دقائق فجر فيه رادارات الإدارة وخلا الجنرال `!` يراجع حساباته ويبكي بالخاص! 💀🎧",
-    "📦 **[ غنائم الحرب ]:** هبطت طائرة الدعم الشعبية، وزعنا كوينز وبرودكاست مجاني على كل السيرفر، وقفلنا غرف التحقيق حقت الـ (!) بالشمع الأحمر! الشارع محكوم بالـ (-) الحين! 💰🤙"
-];
-
-// قائمة سيناريوهات الفزعة العشوائية لـأمر الهيلة العسكري (!)
-const MILITARY_HAILA_SCENARIOS = [
-    "🚀 **[ الإنزال الجوي الحاسم ]:** طائرات الإدارة الحربية حاصرت رومات الشات! قوات الـ (!) الخاصة نزلت بحبال وقبضت على قادة التمرد حارتكم الحين تحت الحظر التجولي التام! ابلععع 🪂💥",
-    "🔨 **[ مطرقة العدالة ]:** صدر حكم محكمة أسامة العليا! تم تفعيل وضعية 'الهيلة العسكرية'، قصفنا جبهة الداش (-) بصاروخ أرض-جو برمجياً، ومسحنا هيبته وصار يدور رتبة فري فاير من الخوف! ⚔️🚨",
-    "🛡️ **[ فرض الهيبة المطلقة ]:** جدران الحماية حقت الـ (!) تقفلت، سحبنا مايكات الثوار، وأي واحد يكتب (-) بيلقى روحه في روم اللوق يكتب تعهد خطي للقائد أسامة! النظام لا يرحم! 👮‍♂️🔒"
-];
 
 client.once('ready', () => {
     console.log('====================================================');
     console.log('⚔️ تم تشغيل النظام بنجاح بواسطة أسامة!');
-    console.log('🔥 [أمر المساعدة] تم تحويله للعلامة المحايدة (?help).');
+    console.log('🔥 الخصومة جاهزة بين ! و - والمرجع ?help نشط.');
     console.log('====================================================');
 
-    // تغيير حالة البوت عشان الناس تعرف أن الأمر صار ?help
     client.user.setPresence({
-        activities: [{ name: '🔥 معركة الهيلة الكبرى | ?help', type: ActivityType.Custom }],
+        activities: [{ name: '🔥 حرب الشوارع | ?help', type: ActivityType.Custom }],
         status: 'dnd',
     });
 });
@@ -88,16 +73,16 @@ client.on('messageCreate', async (message) => {
         return; 
     }
 
-    // 📋 [2. لوحة المساعدة المحايدة والمطورة بالكامل - ?help]
+    // 📋 [2. لوحة المساعدة المحايدة - ?help]
     if (message.content === '?help' || message.content === '?اوامر') {
         const helpEmbed = new EmbedBuilder()
             .setTitle('⚖️ الصحيفة الرسمية لمعركة سيرفر أسامة (دليل الأوامر)')
-            .setDescription('أهلاً بك في المنطقة المحايدة! السيرفر حالياً يعيش حرب طاحنة بين جهتين، وهذي قائمة بالأسلحة المتوفرة لكل جهة:')
+            .setDescription('أهلاً بك في المنطقة المحايدة! السيرفر حالياً يعيش حرب طاحنة بين جهتين، وهذي قائمة بالأسلحة المتوفرة:')
             .addFields(
-                { name: '🔵 أسلحة ثوار الشوارع ( - )', value: '` -ping ` - فحص البينج وقهر الطرف الثاني\n` -broadcast ` - تفجير الخاص الذكي بتقرير مخصص\n` -هيله ` أو ` -هيلة ` - فزعة شعبية عشوائية لجلد عساكر الإدارة! 🔥', inline: false },
-                { name: '🔴 أسلحة جنرالات القانون ( ! )', value: '` !clear ` - تنظيف وتطهير الشات بقوة السلاح\n` !kick ` - طرد المشاغبين خارج الحدود\n` !ban ` - إعدام وبند نهائي من السيرفر\n` !هيله ` أو ` !هيلة ` - إنزال جوي عسكري لقمع التمرد! 🛡️', inline: false }
+                { name: '🔵 أسلحة ثوار الشوارع ( - )', value: '` -ping ` - فحص البينج وقهر الطرف الثاني\n` -broadcast ` - تفجير الخاص الذكي بتقرير مخصص', inline: false },
+                { name: '🔴 أسلحة جنرالات القانون ( ! )', value: '` !clear ` - تنظيف وتطهير الشات بقوة السلاح\n` !kick ` - طرد المشاغبين خارج الحدود\n` !ban ` - إعدام وبند نهائي من السيرفر', inline: false }
             )
-            .setColor(0xF1C40F) // لون ذهبي/أصفر يدل على الحياد والمرجع
+            .setColor(0xF1C40F) 
             .setFooter({ text: 'المرجع الرسمي والأعلى تحت إدارة: أسامة 👑' })
             .setTimestamp();
 
@@ -109,24 +94,7 @@ client.on('messageCreate', async (message) => {
         const args = message.content.slice(USER_PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
 
-        // [أمر -هيله المطور]
-        if (command === 'هيله' || command === 'هيلة') {
-            const randomScen = SHABI_HAILA_SCENARIOS[Math.floor(Math.random() * SHABI_HAILA_SCENARIOS.length)];
-            
-            const hailaEmbed = new EmbedBuilder()
-                .setTitle('🦅 فزعة الهيلة الشعبية نزلواااا!')
-                .setDescription(randomScen)
-                .addFields({ 
-                    name: '🗣️ لسان حال الشارع يقول:', 
-                    value: 'يا إدارة يا عساكر جمعوا راداراتكم واقفلوا مكاتبكم، الحارة نزلت بكامل عتادها وما نعترف بقوانينكم! 💥🛒' 
-                })
-                .setColor(0x00FFFF)
-                .setTimestamp();
-
-            return await message.reply({ content: '📢 **فززززززعة!**', embeds: [hailaEmbed] });
-        }
-
-        // [أمر -ping وفيه رد الخصم !]
+        // [أمر -ping]
         if (command === 'ping') {
             const apiPing = client.ws.ping;
             const pingEmbed = new EmbedBuilder()
@@ -142,6 +110,7 @@ client.on('messageCreate', async (message) => {
             return await message.reply({ embeds: [pingEmbed] });
         }
 
+        // [أمر -broadcast]
         if (command === 'broadcast') {
             return await broadcastCommand.execute(message, args);
         }
@@ -151,27 +120,6 @@ client.on('messageCreate', async (message) => {
     if (message.content.startsWith(ADMIN_PREFIX)) {
         const args = message.content.slice(ADMIN_PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
-
-        // [أمر !هيله المطور]
-        if (command === 'هيله' || command === 'هيلة') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                return await message.reply('❌ **[الجنرال !]:** انثبر! تبي تستدعي قوات الدعم السريع حقتي وأنت عسكري عادي؟ ارجع خفير!');
-            }
-
-            const randomMilScen = MILITARY_HAILA_SCENARIOS[Math.floor(Math.random() * MILITARY_HAILA_SCENARIOS.length)];
-
-            const milHailaEmbed = new EmbedBuilder()
-                .setTitle('🚨 إعلان حالة الطوارئ - هيلة القيادة العليا!')
-                .setDescription(randomMilScen)
-                .addFields({ 
-                    name: '👮‍♂️ قرار جنرالات ديسكورد الصارم:', 
-                    value: 'تم سحق رومات المشاغبين، السيرفر الحين تحت حماية القانون الإداري المطلق، والتمرد انتهى! 🛡️🔨' 
-                })
-                .setColor(0xFF0000)
-                .setTimestamp();
-
-            return await message.reply({ content: '⚡ **إنزال عسكري حاسم!**', embeds: [milHailaEmbed] });
-        }
 
         // [أمر !clear الإداري]
         if (command === 'clear' || command === 'مسح') {
