@@ -1,31 +1,26 @@
 // @ts-nocheck
-import { SlashCommandBuilder, EmbedBuilder, CommandInteraction } from 'discord.js';
+import { EmbedBuilder, Message } from 'discord.js';
 
-export const data = new SlashCommandBuilder()
-    .setName('broadcast')
-    .setDescription('إرسال رسالة جماعية في الخاص للأعضاء مع تقرير ذكي')
-    .addStringOption(option => 
-        option.setName('message')
-            .setDescription('اكتب نص الرسالة الجماعية هنا')
-            .setRequired(true)
-    );
-
-export async function execute(interaction: CommandInteraction) {
-    if (!interaction.member.permissions.has('ManageGuild')) {
-        return await interaction.reply({ content: '❌ هذا الأمر مخصص للإدارة فقط!', ephemeral: true });
+export async function execute(message: Message, args: string[]) {
+    if (!message.member.permissions.has('ManageGuild')) {
+        return await message.reply('❌ **[نظام الحظر !]:** هيه أنت! تبي تسوي برودكاست بدون صلاحية؟ ارجع ورا لا أبندك!');
     }
 
-    const broadcastMessage = interaction.options.getString('message');
+    const broadcastMessage = args.join(' ');
+    if (!broadcastMessage) {
+        return await message.reply('❌ **[البريفكس -]:** يا بطل اكتب نص الرسالة عشان نهز فيها السيرفر! مثال: `-broadcast المقطع نزل`');
+    }
     
     const userEmbed = new EmbedBuilder()
-        .setTitle(`📢 رسالة جماعية من سيرفر: ${interaction.guild.name}`)
+        .setTitle(`📢 رسالة جماعية من سيرفر: ${message.guild.name}`)
         .setDescription(broadcastMessage)
         .setColor(0x00FFFF)
         .setTimestamp();
 
-    await interaction.reply({ content: '🔄 جاري بدء الإرسال وإعداد التقرير التلقائي...', ephemeral: true });
+    // بداية الحرب الكلامية في الشات
+    const statusMessage = await message.reply('🔄 **[البريفكس -]:** جاري تفعيل موجات البرودكاست واختراق الخاص.. (العلامة ! قاعدة تراقبنا ومو عاجبها الوضع) 🤫');
 
-    const members = await interaction.guild.members.fetch();
+    const members = await message.guild.members.fetch();
     let successCount = 0;
     let failCount = 0;
     let reportText = ""; 
@@ -43,20 +38,22 @@ export async function execute(interaction: CommandInteraction) {
         }
     }
 
-    if (reportText.length > 1800) {
-        reportText = reportText.substring(0, 1800) + "\n... وتوجد أسماء أخرى بالأعلى";
+    if (reportText.length > 1500) {
+        reportText = reportText.substring(0, 1500) + "\n... اللستة طويلة وما نبي زحمة";
     }
 
+    // إمبيد التقرير الخصمي المشترك
     const reportEmbed = new EmbedBuilder()
-        .setTitle('📊 تقرير تسليم البرودكاست الشامل')
-        .setDescription(`**حالة الإرسال لكل عضو:**\n\`\`\`text\n${reportText || "لا يوجد أعضاء"}\n\`\`\``)
+        .setTitle('⚔️ ساحة معركة البرودكاست والتقارير')
+        .setDescription(`**قائمة التسليم الحية:**\n\`\`\`text\n${reportText || "الشات فاضي"}\n\`\`\``)
         .addFields(
-            { name: '🟢 تم الإرسال بنجاح:', value: `\`${successCount}\` عضو`, inline: true },
-            { name: '🔴 فشل الإرسال (مقفل الخاص):', value: `\`${failCount}\` عضو`, inline: true }
+            { name: '🟢 جبهة الـ ( - ): وصلنا للناجحين', value: `\`${successCount}\` عضو استلم الخاص`, inline: true },
+            { name: '🔴 جبهة الـ ( ! ): كشفنا المقفلين', value: `\`${failCount}\` عضو متبند خاصه`, inline: true },
+            { name: '🎤 ديس وقصف جبهة بين الخصوم:', value: `**البريفكس (-):** شفت كيف؟ نشرت الإعلان للكل وفجرت الخاص، أنت حدك تمسح شات وتبند مساكين!\n\n**البريفكس (!):** ابلع العافية بس، لو ما حميت لك السيرفر من السبام كان بوتك هكروا فيه الصغار، قال برودكاست قال! 🤐`, inline: false }
         )
-        .setColor(0x00FF00)
+        .setColor(0xFF00FF)
         .setTimestamp()
-        .setFooter({ text: 'نظام إدارة سيرفر أسامة التلقائي 🛡️' });
+        .setFooter({ text: 'صراع القوة والسيطرة في خوادم أسامة 💥' });
 
-    return await interaction.followUp({ embeds: [reportEmbed], ephemeral: true });
+    return await statusMessage.edit({ content: '🏁 **انتهت الغارة الجماعية بنجاح!**', embeds: [reportEmbed] });
 }
