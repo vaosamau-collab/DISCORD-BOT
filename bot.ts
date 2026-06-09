@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 const client = new Client({ 
     intents: [
@@ -11,75 +11,81 @@ const client = new Client({
 });
 
 const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = "1507868881597759510";
 
-client.once('ready', () => {
-    console.log(`✅ البوت جاهز ومستقر بدون نظام التيكت: ${client.user.tag}`);
-    client.user.setActivity('حماية سيرفر أسامة | !help 🛡️');
+// --- 1. تسجيل أوامر السلاش عند تشغيل البوت ---
+client.once('ready', async () => {
+    try {
+        const commands = [
+            new SlashCommandBuilder().setName('ping').setDescription('فحص سرعة استجابة النظام'),
+            new SlashCommandBuilder().setName('clear').setDescription('تنظيف الشات من الرسائل').addIntegerOption(o => o.setName('amount').setDescription('عدد الرسائل (1-100)').setRequired(true)),
+            new SlashCommandBuilder().setName('kick').setDescription('طرد عضو من السيرفر').addUserOption(o => o.setName('target').setDescription('العضو المراد طرده').setRequired(true)),
+            new SlashCommandBuilder().setName('ban').setDescription('حظر عضو من السيرفر').addUserOption(o => o.setName('target').setDescription('العضو المراد حظره').setRequired(true))
+        ].map(cmd => cmd.toJSON()); // الخدعة السحرية: تحويل الأوامر لمنع الكراش نهائياً!
+
+        const rest = new REST({ version: '10' }).setToken(TOKEN);
+        
+        console.log('🔄 جاري تحديث وتسجيل أوامر السلاش في ديسكورد...');
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+        
+        console.log(`✅ تم تسجيل جميع الأوامر بنجاح وبدون كراش!`);
+        client.user.setActivity('إدارة السيرفر بالسلاش / 🛡️');
+    } catch (error) {
+        console.error('❌ حدث خطأ أثناء التسجيل:', error);
+    }
 });
 
+// --- 2. معالجة وتشغيل أوامر السلاش (/) ---
+client.on('interactionCreate', async (i) => {
+    if (!i.isChatInputCommand()) return;
+
+    // أمر البينج
+    if (i.commandName === 'ping') {
+        await i.reply({ content: `🚀 الاستجابة الحالية: ${client.ws.ping}ms`, ephemeral: true });
+    }
+
+    // أمر مسح الشات
+    if (i.commandName === 'clear') {
+        const amount = i.options.getInteger('amount');
+        if (amount > 100 || amount < 1) return i.reply({ content: '❌ يرجى اختيار رقم بين 1 و 100.', ephemeral: true });
+        
+        await i.channel.bulkDelete(amount, true).catch(() => {});
+        await i.reply({ content: `🧹 تم تنظيف السيرفر وحذف ${amount} رسالة!`, ephemeral: true });
+    }
+
+    // أمر الطرد
+    if (i.commandName === 'kick') {
+        const member = i.options.getMember('target');
+        if (!member) return i.reply({ content: '❌ لم أجد هذا العضو في السيرفر.', ephemeral: true });
+        
+        await member.kick()
+            .then(() => i.reply({ content: `✅ تم طرد العضو **${member.user.tag}** بنجاح.`, ephemeral: true }))
+            .catch(() => i.reply({ content: '❌ فشل الطرد! تأكد من أن رتبة البوت أعلى من رتبة الشخص.', ephemeral: true }));
+    }
+
+    // أمر الحظر
+    if (i.commandName === 'ban') {
+        const member = i.options.getMember('target');
+        if (!member) return i.reply({ content: '❌ لم أجد هذا العضو في السيرفر.', ephemeral: true });
+        
+        await member.ban()
+            .then(() => i.reply({ content: `🔨 تم حظر العضو **${member.user.tag}** نهائياً.`, ephemeral: true }))
+            .catch(() => i.reply({ content: '❌ فشل الحظر! تأكد من صلاحيات رتبة البوت.', ephemeral: true }));
+    }
+});
+
+// --- 3. نظام الفلتر التلقائي (يعمل في الشات مباشرة بدون أوامر) ---
 client.on('messageCreate', async (m) => {
     if (m.author.bot) return;
 
-    // --- 1. نظام الفلتر الذكي وسجل المخالفات ---
     const badWords = ["زق", "كلب", "خرا"];
     if (badWords.some(w => m.content.toLowerCase().includes(w))) {
         await m.delete().catch(() => {});
         
-        // إرسال لوق لروم الـ Logs الخاص بك
         const logChannel = m.guild.channels.cache.get("1508091945883275495");
         if (logChannel) {
-            logChannel.send(`🚨 **مخالفة جديدة**\nالمخالف: ${m.author.tag}\nالرسالة: ${m.content}`);
+            logChannel.send(`🚨 **مخالفة شات مرصودة**\nالمخالف: ${m.author.tag}\nالرسالة المحذوفة: ${m.content}`);
         }
-        return;
-    }
-
-    // --- 2. التحقق من البادئة ---
-    if (!m.content.startsWith('!')) return;
-    const args = m.content.slice(1).split(/ +/);
-    const cmd = args.shift().toLowerCase();
-
-    // --- 3. قائمة الأوامر المتبقية ---
-    
-    // أمر فحص السرعة
-    if (cmd === 'ping') {
-        m.reply(`البوت يعمل بكامل طاقته! 🚀 (البينج: ${client.ws.ping}ms)`);
-    }
-
-    // أمر مسح الشات
-    if (cmd === 'clear') {
-        const amount = parseInt(args[0]) || 1;
-        if (amount > 10000 || amount < 1) return m.reply("❌ حدد رقماً بين 1 و 100 للمسح.");
-        await m.channel.bulkDelete(amount, true).catch(() => {});
-        m.channel.send(`🧹 تم مسح ${amount} رسالة بنجاح.`).then(msg => setTimeout(() => msg.delete(), 3000));
-    }
-
-    // أمر الطرد (Kick)
-    if (cmd === 'kick') {
-        const member = m.mentions.members.first();
-        if (!member) return m.reply("❌ يجب عليك منشنة العضو المراد طرده.");
-        await member.kick().then(() => m.reply(`✅ تم طرد ${member.user.tag} من السيرفر.`)).catch(() => m.reply("❌ لا أملك صلاحية لطرد هذا العضو."));
-    }
-
-    // أمر الحظر (Ban)
-    if (cmd === 'ban') {
-        const member = m.mentions.members.first();
-        if (!member) return m.reply("❌ يجب عليك منشنة العضو المراد حظره.");
-        await member.ban().then(() => m.reply(`🔨 تم حظر ${member.user.tag} نهائياً.`)).catch(() => m.reply("❌ لا أملك صلاحية لحظر هذا العضو."));
-    }
-
-    // أمر المساعدة وعرض الأوامر (Help)
-    if (cmd === 'help') {
-        const embed = new EmbedBuilder()
-            .setTitle("🛡️ لوحة تحكم سيرفر أسامة")
-            .setDescription("إليك قائمة بالأوامر المتاحة بعد إزالة التيكت:")
-            .addFields(
-                { name: "⚙️ أوامر الإدارة", value: "`!clear [العدد]` - لتنظيف الشات\n`!kick @عضو` - لطرد عضو\n`!ban @عضو` - لحظر عضو", inline: false },
-                { name: "📡 أوامر عامة", value: "`!ping` - لفحص سرعة استجابة البوت", inline: false }
-            )
-            .setColor(0xFF0000)
-            .setFooter({ text: "نظام حماية وإدارة تلقائي" });
-
-        m.reply({ embeds: [embed] });
     }
 });
 
